@@ -33,7 +33,7 @@ public:
 	int id = 0;
 
 	// 여기부터
-	Object(const char*, int, glm::vec3, glm::vec3, glm::vec3);
+	Object(const char*, glm::vec3, glm::vec3, glm::vec3);
 	Object() {}
 	~Object() {}
 	void InitBuffer(); // 생성자 안에 무조건 넣습니다

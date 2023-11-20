@@ -22,7 +22,7 @@ void Object::UpdateBB()
 	}
 }
 
-Object::Object(const char* c, int id, glm::vec3 s = { 1.0f, 1.0f, 1.0f }, glm::vec3 r = { 0.0f, 0.0f, 0.0f }, glm::vec3 t = { 0.0f, 0.0f, 0.0f })
+Object::Object(const char* c, glm::vec3 s = { 1.0f, 1.0f, 1.0f }, glm::vec3 r = { 0.0f, 0.0f, 0.0f }, glm::vec3 t = { 0.0f, 0.0f, 0.0f })
 	: id{id}, S{s}, R{r}, T{t}
 {
 	Readobj(c);
@@ -41,8 +41,6 @@ void Object::Update()
 
 void Object::Render(GLuint shaderProgramID, GLenum eMode)
 {
-	if(eMode == GL_SELECT)
-		glLoadName(id);
 	glBindVertexArray(vao);
 
 	// Location 번호 저장

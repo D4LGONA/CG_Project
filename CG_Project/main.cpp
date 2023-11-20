@@ -21,67 +21,39 @@ char* filetobuf(const char*);
 
 POINT mousept;
 vector<Object> stage;
+Object* cube;
+bool drag = false;
+float Ypos = -20.0f;
 
-//void ProcessHits(unsigned int uiHits, unsigned int* pBuffer)
-//{
-//	static unsigned int i, j;
-//	static unsigned int uiName, * ptr;
-//
-//	std::cout << "uiHits: " << uiHits << std::endl;
-//	std::cout << "uiName: " << uiName << std::endl;
-//
-//
-//	ptr = pBuffer;
-//	for (i = 0; i < uiHits; i++)          // for each hit
-//	{
-//		uiName = *ptr;
-//		ptr += 3;
-//
-//		for (j = 0; j < uiName; j++)      // for each name
-//		{
-//			stage[*ptr].isSelected = true;
-//			ptr++;
-//		}
-//	}
-//}
-//
-//void Picking(int x, int y) {
-//	static unsigned int aSelectBuffer[512];
-//	static unsigned int uiHits;
-//	static int aViewport[4];
-//
-//	glGetIntegerv(GL_VIEWPORT, aViewport);
-//
-//	glSelectBuffer(512, aSelectBuffer);
-//	glRenderMode(GL_SELECT);
-//
-//	glInitNames();
-//	glPushName(0);
-//
-//	glMatrixMode(GL_PROJECTION);
-//	glPushMatrix();
-//	glLoadIdentity();
-//
-//	gluPickMatrix((double)x, (double)(aViewport[3] - y), 5.0, 5.0, aViewport);
-//
-//	glViewport(0, 0, 600, 600);
-//
-//	glMatrixMode(GL_MODELVIEW);
-//	for (Object& i : stage)
-//		i.Render(shaderProgramID, GL_SELECT);
-//
-//	glMatrixMode(GL_PROJECTION);
-//	glPopMatrix();
-//
-//	glPopName();
-//
-//	uiHits = glRenderMode(GL_RENDER);
-//	ProcessHits(uiHits, aSelectBuffer);
-//
-//	glMatrixMode(GL_MODELVIEW);
-//
-//	glutPostRedisplay();
-//}
+
+pair<bool, glm::vec3> rayXZPlaneIntersection(glm::vec3 rayStart, glm::vec3 rayDirection) 
+{
+	// XZ 평면의 방정식: y = 0
+	// Ray의 방정식: P(t) = rayStart + t * rayDirection
+
+	pair<bool, glm::vec3> intersection;
+
+	// Ray의 방향 벡터의 y 성분이 0이면 교차하지 않음
+	if (rayDirection.y == 0) {
+		intersection.first = false;
+		return intersection;
+	}
+
+	// t 값 계산
+	float t = (-1 * (rayStart.y + -Ypos)) / rayDirection.y;
+
+	// t가 음수이면 Ray는 XZ 평면과 반대 방향으로 향함
+	if (t < 0) {
+		intersection.first = false;
+		return intersection;
+	}
+
+	// 교차 지점 계산
+	intersection.first = true;
+	intersection.second = rayStart + t * rayDirection;
+
+	return intersection;
+}
 
 void Reset()
 {
@@ -98,9 +70,11 @@ void Reset()
 	{
 		for (int j = 0; j < 10; ++j)
 		{
-			stage.push_back({ "plane.obj", i + j,{5.0f, 0.5f, 5.0f}, {0.0f,0.0f,0.0f}, {(-5.0f * 5) + (5.0f * i) + 2.5f,-20.0f,(-5.0f * 5) + (5.0f * j) + 2.5f}});
+			stage.push_back({ "plane.obj", {5.0f, 0.5f, 5.0f}, {0.0f,0.0f,0.0f}, {(-5.0f * 5) + (5.0f * i) + 2.5f,-20.0f,(-5.0f * 5) + (5.0f * j) + 2.5f}});
 		}
 	}
+
+	cube = new Object( "cube.obj",{3.0f, 3.0f, 3.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, -20.0f,0.0f} );
 
 	proj = glm::mat4(1.0f);
 	proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 200.0f); //--- 투영 공간 설정: fovy, aspect, near, far
@@ -148,6 +122,7 @@ GLvoid drawScene()
 		i.Render(shaderProgramID, 0);
 	}
 
+	cube->Render(shaderProgramID, 0);
 
 	glutSwapBuffers(); //--- 화면에 출력하기
 }
@@ -198,9 +173,11 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 		break;
 
 	case '+':
+		Ypos += 0.5f;
 		break;
 
 	case '-':
+		Ypos -= 0.5f;
 		break;
 
 	case 'p': // 직각투영?
@@ -234,6 +211,7 @@ GLvoid TimerFunction(int value)
 	for (Object& i : stage)
 		i.Update();
 
+	cube->Update();
 
 	glutPostRedisplay();
 	glutTimerFunc(50, TimerFunction, 1);
@@ -246,39 +224,43 @@ GLvoid Mouse(int button, int state, int x, int y)
 		glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
 		glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
 
-		/*ray_origin = glm::vec3{ 0.0f, 1.1f, 0.0f };
-		ray_direction = glm::vec3{ 0.0f, -1.0f, 0.0f };*/
-
 		// Ray Picking 로직
 		for (auto& object : stage) {
 			if (obb_ray(object, ray_origin, ray_direction))
 				object.isSelected = true;
 			else
 				object.isSelected = false;
-			/*glm::vec3 object_center = object.vCenterPos;
-			float object_radius = object.fAxisLen[0];
-
-			glm::vec3 oc = ray_origin - object_center;
-			float a = glm::dot(ray_direction, ray_direction);
-			float b = 2.0f * glm::dot(oc, ray_direction);
-			float c = glm::dot(oc, oc) - object_radius * object_radius;
-			float discriminant = b * b - 4 * a * c;
-
-			if (discriminant > 0) {
-				std::cout << "object selected!" << std::endl;
-				object.isSelected = true;
-				break;
-			}*/
 		}
+		drag = true;
 	}
 	else if (button == GLUT_LEFT_BUTTON && state == GLUT_UP)
 	{
+		drag = false;
 	}
 	return GLvoid();
 }
 
 GLvoid Motion(int x, int y)
 {
+	if(drag)
+	{
+		glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
+		glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
+
+		auto intersection = rayXZPlaneIntersection(ray_origin, ray_direction).second;
+
+		for (auto& object : stage) 
+		{
+			if (object.isSelected)
+			{
+				object.SetMove(0, intersection.x);
+				object.SetMove(1, intersection.y);
+				object.SetMove(2, intersection.z);
+				break;
+			}
+		}
+	}
+
 	glutPostRedisplay();
 }
 
