@@ -20,35 +20,31 @@ GLvoid Motion(int x, int y);
 char* filetobuf(const char*);
 
 POINT mousept;
-vector<Object> stage;
 Object* cube;
 bool drag = false;
 float Ypos = -20.0f;
 
+bool R_mode = false;
+bool M_mode = false;
+Object* target = nullptr;
+
 
 pair<bool, glm::vec3> rayXZPlaneIntersection(glm::vec3 rayStart, glm::vec3 rayDirection) 
 {
-	// XZ 평면의 방정식: y = 0
-	// Ray의 방정식: P(t) = rayStart + t * rayDirection
-
 	pair<bool, glm::vec3> intersection;
 
-	// Ray의 방향 벡터의 y 성분이 0이면 교차하지 않음
 	if (rayDirection.y == 0) {
 		intersection.first = false;
 		return intersection;
 	}
 
-	// t 값 계산
 	float t = (-1 * (rayStart.y + -Ypos)) / rayDirection.y;
 
-	// t가 음수이면 Ray는 XZ 평면과 반대 방향으로 향함
 	if (t < 0) {
 		intersection.first = false;
 		return intersection;
 	}
 
-	// 교차 지점 계산
 	intersection.first = true;
 	intersection.second = rayStart + t * rayDirection;
 
@@ -57,8 +53,6 @@ pair<bool, glm::vec3> rayXZPlaneIntersection(glm::vec3 rayStart, glm::vec3 rayDi
 
 void Reset()
 {
-	stage.clear();
-	
 	cameraPos = glm::vec3(0.0f, 0.0f, 120.0f); //--- 카메라 위치
 	cameraDirection = glm::vec3(0.0f, 0.0f, 0.0f); //--- 카메라 바라보는 방향
 	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f); //--- 카메라 위쪽 방향
@@ -66,15 +60,8 @@ void Reset()
 	cameraAngle = { 0.0f, 0.0f, 0.0f };
 
 
-	for (int i = 0; i < 10; ++i)
-	{
-		for (int j = 0; j < 10; ++j)
-		{
-			stage.push_back({ "plane.obj", {5.0f, 0.5f, 5.0f}, {0.0f,0.0f,0.0f}, {(-5.0f * 5) + (5.0f * i) + 2.5f,-20.0f,(-5.0f * 5) + (5.0f * j) + 2.5f}});
-		}
-	}
-
-	cube = new Object( "cube.obj",{3.0f, 3.0f, 3.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, -20.0f,0.0f} );
+	cube = new Object("resources/star.obj", shaderProgramID, { 10.0f, 10.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, -20.0f, 0.0f }, {1.0f, 1.0f, 1.0f, 1.0f});
+	cube->InitTexture("resources/star_base_2.png");
 
 	proj = glm::mat4(1.0f);
 	proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 200.0f); //--- 투영 공간 설정: fovy, aspect, near, far
@@ -101,7 +88,8 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(Reshape);
 	glutMouseFunc(Mouse);
-	glutMotionFunc(Motion);
+	//glutMotionFunc(Motion);
+	glutPassiveMotionFunc(Motion);
 	glutKeyboardFunc(Keyboarddown);
 	glutKeyboardUpFunc(Keyboardup);
 	Reset();
@@ -111,18 +99,13 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 
 GLvoid drawScene()
 {
-	glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(shaderProgramID);
 	
 	glEnable(GL_DEPTH_TEST); 
 
-	for (Object& i : stage)
-	{
-		i.Render(shaderProgramID, 0);
-	}
-
-	cube->Render(shaderProgramID, 0);
+	cube->Render();
 
 	glutSwapBuffers(); //--- 화면에 출력하기
 }
@@ -136,59 +119,12 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
-	case 'j': // 점프
-		break;
-
-	case'i':
-		break;
-
-	case 'k':
-		break;
-
-	case 'w':
-		break;
-
-	case 'a':
-		break;
-
-	case 's':
-		break;
-
-	case 'd':
-		break;
-
-	case 'x':
-		break;
-
-	case 'X':
-		break;
-
-	case 'y':
-		break;
-
-	case 'z':
-		break;
-
-	case 'Z':
-		break;
-
 	case '+':
 		Ypos += 0.5f;
 		break;
 
 	case '-':
 		Ypos -= 0.5f;
-		break;
-
-	case 'p': // 직각투영?
-		proj = glm::mat4(1.0f);
-		proj = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, -50.0f, 50.0f);
-		break;
-
-	case 'P': // 원근투영?
-		proj = glm::mat4(1.0f);
-		proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 200.0f); //--- 투영 공간 설정: fovy, aspect, near, far
-		proj = glm::translate(proj, glm::vec3(0.0, 0.0, -10.0f));
 		break;
 
 	case 'q': // 프로그램 종료
@@ -208,9 +144,6 @@ GLvoid Keyboardup(unsigned char key, int x, int y)
 
 GLvoid TimerFunction(int value)
 {
-	for (Object& i : stage)
-		i.Update();
-
 	cube->Update();
 
 	glutPostRedisplay();
@@ -221,44 +154,42 @@ GLvoid Mouse(int button, int state, int x, int y)
 {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
 	{
+		if (target != nullptr)
+		{
+			target = nullptr;
+			return;
+		}
+
 		glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
 		glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
 
 		// Ray Picking 로직
-		for (auto& object : stage) {
-			if (obb_ray(object, ray_origin, ray_direction))
-				object.isSelected = true;
-			else
-				object.isSelected = false;
-		}
+		if (obb_ray(*cube, ray_origin, ray_direction))
+			target = cube;
+		else
+			target = nullptr;
 		drag = true;
 	}
 	else if (button == GLUT_LEFT_BUTTON && state == GLUT_UP)
 	{
-		drag = false;
+		//drag = false;
 	}
 	return GLvoid();
 }
 
 GLvoid Motion(int x, int y)
 {
-	if(drag)
+	cout << (target != nullptr) << endl;
+	if(target != nullptr)
 	{
 		glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
 		glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
 
 		auto intersection = rayXZPlaneIntersection(ray_origin, ray_direction).second;
 
-		for (auto& object : stage) 
-		{
-			if (object.isSelected)
-			{
-				object.SetMove(0, intersection.x);
-				object.SetMove(1, intersection.y);
-				object.SetMove(2, intersection.z);
-				break;
-			}
-		}
+		target->SetMove(0, intersection.x);
+		target->SetMove(1, intersection.y);
+		target->SetMove(2, intersection.z);
 	}
 
 	glutPostRedisplay();

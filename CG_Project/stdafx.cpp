@@ -1,25 +1,30 @@
 #include "stdafx.h"
 #include "Object.h"
 
+
 std::random_device rd;
 std::mt19937 dre(rd());
 std::uniform_real_distribution<float> uidC{ 0.0f, 1.0f };
 glm::mat4 proj = glm::mat4(1.0f);
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 50.0f); //--- 카메라 위치
+glm::vec3 cameraPos = glm::vec3(0.0f, 50.0f, 50.0f); //--- 카메라 위치
 glm::vec3 cameraDirection = glm::vec3(0.0f, 0.0f, 0.0f); //--- 카메라 바라보는 방향
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f); //--- 카메라 위쪽 방향
 glm::mat4 view = glm::mat4(1.0f);
 glm::vec3 cameraAngle = { 0.0f, 0.0f, 0.0f };
+glm::vec3 lightPos = { 0.0f, 100.0f, 100.0f };
+glm::vec3 lightColor = { 1.0f, 1.0f, 1.0f };
+bool light_onf = true;
+float light_hardness = 0.3f;
 
 pair<float, float> WintoOpenGL(POINT pt)
 {
-	pair<float, float> a = { pt.x / 400. - 1, 1 - (pt.y / 400.) };
-	return a;
+    pair<float, float> a = { pt.x / 400. - 1, 1 - (pt.y / 400.) };
+    return a;
 }
 
 float dist(glm::vec3 p1, glm::vec3 p2)
 {
-	return sqrt(powf(p2.x - p1.x, 2) + powf(p2.y - p1.y, 2) + powf(p2.z - p1.z, 2));
+    return sqrt(powf(p2.x - p1.x, 2) + powf(p2.y - p1.y, 2) + powf(p2.z - p1.z, 2));
 }
 
 bool obb(Object& a, Object& b)
@@ -246,61 +251,5 @@ bool obb_ray(Object& a, glm::vec3 origin, glm::vec3 direction)
     }
 
     return true;
-
-
-    //glm::vec3 d = origin - a.vCenterPos;
-
-    //direction = glm::normalize(direction);
-    //a.vAxisDir[0] = glm::normalize(a.vAxisDir[0]);
-    //a.vAxisDir[1] = glm::normalize(a.vAxisDir[1]);
-    //a.vAxisDir[2] = glm::normalize(a.vAxisDir[2]);
-   
-    //// OBB의 로컬 좌표계로 레이를 변환
-    //glm::vec3 rayDirLocal(
-    //    glm::dot(direction, a.vAxisDir[0]),
-    //    glm::dot(direction, a.vAxisDir[1]),
-    //    glm::dot(direction, a.vAxisDir[2])
-    //);
-
-    //// 선의 시작점을 OBB의 로컬 좌표계로 변환
-    //glm::vec3 rayOriginLocal(
-    //    glm::dot(d, a.vAxisDir[0]),
-    //    glm::dot(d, a.vAxisDir[1]),
-    //    glm::dot(d, a.vAxisDir[2])
-    //);
-
-
-    //// OBB 충돌 검사
-    ///*float tMin = 0.0f;
-    //float tMax = 100000.0f;*/
-    //float tMin = -glm::length(glm::vec3{ a.fAxisLen[0], a.fAxisLen[1], a.fAxisLen[2] });
-    //float tMax = glm::length(glm::vec3{ a.fAxisLen[0], a.fAxisLen[1], a.fAxisLen[2] });
-
-    //for (int i = 0; i < 3; ++i) {
-    //    float axisDir = glm::dot(rayDirLocal, a.vAxisDir[i]);
-    //    float axisOrigin = glm::dot(rayOriginLocal, a.vAxisDir[i]);
-
-    //    // 광선하고 물체하고 닿는건가?
-    //    float t1 = (a.fAxisLen[i] - axisOrigin) / axisDir;
-    //    float t2 = (-a.fAxisLen[i] - axisOrigin) / axisDir;
-
-    //    std::cout << "Axis " << i << ": t1 = " << t1 << ", t2 = " << t2 << std::endl;
-
-    //    tMin = glm::max(tMin, glm::min(t1, t2));
-    //    tMax = glm::min(tMax, glm::max(t1, t2));
-
-    //    /*float axisDir = glm::dot(rayDirLocal, a.vAxisDir[i]);
-    //    float axisOrigin = glm::dot(rayOriginLocal, a.vAxisDir[i]);
-
-    //    float t1 = (tMin - axisOrigin) / axisDir;
-    //    float t2 = (tMax - axisOrigin) / axisDir;
-
-    //    std::cout << "Axis " << i << ": t1 = " << t1 << ", t2 = " << t2 << std::endl;
-
-    //    tMin = glm::max(tMin, glm::min(t1, t2));
-    //    tMax = glm::min(tMax, glm::max(t1, t2));*/
-    //}
-
-    //int k = 0;
-    //return tMax >= glm::max(0.0f, tMin);
 }
+
