@@ -23,10 +23,43 @@ void Object::UpdateBB()
 	}
 }
 
-Object::Object(const char* c, GLuint sp, glm::vec3 s = { 1.0f, 1.0f, 1.0f }, glm::vec3 r = { 0.0f, 0.0f, 0.0f }, glm::vec3 t = { 0.0f, 0.0f, 0.0f }, glm::vec4 cc = {1.0f, 1.0f, 1.0f, 1.0f})
-	: S{s}, R{r}, T{t}, objColor{cc}, ShaderProgram{sp}
+Object::Object(const char* c, GLuint sp, glm::vec3 s = { 1.0f, 1.0f, 1.0f }, glm::vec3 r = { 0.0f, 0.0f, 0.0f }, glm::vec3 t = { 0.0f, 0.0f, 0.0f }, glm::vec4 cc = {1.0f, 1.0f, 1.0f, 1.0f}, int shp = 0)
+	: S{s}, R{r}, T{t}, objColor{cc}, ShaderProgram{sp}, shape{shp}
 {
 	Readobj(c);
+}
+
+Object::Object(GLuint sp, glm::vec3 s, glm::vec3 r, glm::vec3 t, glm::vec4 cc, int shp) // Todo
+	: S{ s }, R{ r }, T{ t }, objColor{ cc }, ShaderProgram{ sp }, shape{ shp }
+{
+	switch (shape)
+	{
+	case 1:
+		Readobj("resources/brick.obj");
+		InitTexture("resources/brick_base.png");
+		break;
+
+	case 2:
+		Readobj("resources/brick.obj");
+		InitTexture("resources/brick_base.png");
+		break;
+
+	case 3:
+		Readobj("resources/star.obj");
+		InitTexture("resources/star_base.png");
+		break;
+
+	case 4:
+		Readobj("resources/coin.obj");
+		InitTexture("resources/coin_base.png");
+		break;
+
+	case 5:
+		Readobj("resources/pipe.obj");
+		InitTexture("resources/pipe_base.png");
+		break;
+	}
+
 }
 
 void Object::Update()
@@ -44,6 +77,11 @@ void Object::Render()
 {
 	glBindVertexArray(vao);
 	glBindTexture(GL_TEXTURE_2D, texture);
+
+	view = glm::lookAt(cameraPos, cameraDirection, cameraUp);
+	view = glm::rotate(view, glm::radians(cameraAngle.z), { 0.0f, 0.0f, 1.0f });
+	view = glm::rotate(view, glm::radians(cameraAngle.y), { 0.0f, 1.0f, 0.0f });
+	view = glm::rotate(view, glm::radians(cameraAngle.x), { 1.0f, 0.0f, 0.0f });
 
 	unsigned int lightPosLocation = glGetUniformLocation(ShaderProgram, "lightPos"); 
 	glUniform3f(lightPosLocation, lightPos.x, lightPos.y, lightPos.z);
@@ -167,7 +205,7 @@ void Object::Readobj(const char* s)
 		}
 	}
 
-	for (int i = 0; i < vertexnum; ++i)
+	for (int i = 0; i < faceIndex; ++i)
 	{
 		v.push_back(vertex[int(face[i].x)]);
 		v.push_back(normals[int(normalidx[i].x)]);

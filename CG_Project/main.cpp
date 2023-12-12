@@ -17,17 +17,68 @@ GLvoid Keyboardup(unsigned char key, int x, int y);
 GLvoid TimerFunction(int value);
 GLvoid Mouse(int button, int state, int x, int y);
 GLvoid Motion(int x, int y);
+GLvoid DragMotion(int x, int y);
 char* filetobuf(const char*);
 
 POINT mousept;
-Object* cube;
+Object* stage;
+vector<Object*> objs;
+
 bool drag = false;
 float Ypos = -20.0f;
 
 bool R_mode = false;
-bool M_mode = false;
+bool M_mode = true;
+bool Edit_mode = true;
 Object* target = nullptr;
 
+void howto()
+{
+
+}
+
+bool Save(string filepath)
+{
+	ofstream out{ "resources/" + filepath};
+
+	if (out.is_open()) 
+	{
+		for (Object*& obj : objs) 
+		{
+			out << *obj << std::endl;
+		}
+		out.close();
+		std::cout << "해당 경로에 저장되었습니다: " << "resources/" + filepath << std::endl;
+	}
+	else 
+	{
+		std::cerr << "파일을 찾을 수 없습니다: " << "resources/" + filepath << std::endl;
+	}
+
+	return true;
+}
+
+bool Load(string filepath)
+{
+	objs.clear();
+
+	std::ifstream in("resources/" + filepath);
+	if (in.is_open()) {
+		Object t{};
+		while (in >> t) 
+		{
+			objs.push_back(new Object(shaderProgramID, t.GetS(), t.GetRot(), t.GetT(), { 1.0f, 1.0f, 1.0f, 1.0f }, t.shape));
+		}
+		in.close();
+		std::cout << "해당 경로의 파일을 불러왔습니다: " << "resources/" + filepath << std::endl;
+	}
+	else {
+		std::cerr << "파일을 찾을 수 없습니다: " << "resources/" + filepath << std::endl;
+	}
+
+	return true;
+
+}
 
 pair<bool, glm::vec3> rayXZPlaneIntersection(glm::vec3 rayStart, glm::vec3 rayDirection) 
 {
@@ -53,15 +104,18 @@ pair<bool, glm::vec3> rayXZPlaneIntersection(glm::vec3 rayStart, glm::vec3 rayDi
 
 void Reset()
 {
+	int tx, ty;
+	cout << "맵 크기: ";
+	cin >> tx >> ty;
+	stage = new Object("resources/plane.obj", shaderProgramID, { tx, 0.5f, ty}, { 0.0f, 0.0f, 0.0f }, { 0.0f, -20.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 0);
+	stage->InitTexture("resources/stage_base.png");
+	cout << "초기 상태 - 오브젝트 이동 모드." << endl;
+	
 	cameraPos = glm::vec3(0.0f, 0.0f, 120.0f); //--- 카메라 위치
 	cameraDirection = glm::vec3(0.0f, 0.0f, 0.0f); //--- 카메라 바라보는 방향
 	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f); //--- 카메라 위쪽 방향
 	view = glm::mat4(1.0f);
 	cameraAngle = { 0.0f, 0.0f, 0.0f };
-
-
-	cube = new Object("resources/star.obj", shaderProgramID, { 10.0f, 10.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, -20.0f, 0.0f }, {1.0f, 1.0f, 1.0f, 1.0f});
-	cube->InitTexture("resources/star_base_2.png");
 
 	proj = glm::mat4(1.0f);
 	proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 200.0f); //--- 투영 공간 설정: fovy, aspect, near, far
@@ -88,7 +142,7 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(Reshape);
 	glutMouseFunc(Mouse);
-	//glutMotionFunc(Motion);
+	glutMotionFunc(DragMotion);
 	glutPassiveMotionFunc(Motion);
 	glutKeyboardFunc(Keyboarddown);
 	glutKeyboardUpFunc(Keyboardup);
@@ -105,7 +159,10 @@ GLvoid drawScene()
 	
 	glEnable(GL_DEPTH_TEST); 
 
-	cube->Render();
+	stage->Render();
+
+	for (Object*& o : objs)
+		o->Render();
 
 	glutSwapBuffers(); //--- 화면에 출력하기
 }
@@ -117,20 +174,114 @@ GLvoid Reshape(int w, int h)
 
 GLvoid Keyboarddown(unsigned char key, int x, int y)
 {
-	switch (key)
+	if (Edit_mode) // 맵 편집 도구 동작.
 	{
-	case '+':
-		Ypos += 0.5f;
-		break;
+		switch (key)
+		{
+		case '1':
+			cout << "1번 객체: 벽돌 블럭입니다." << endl;
+			objs.push_back(new Object("resources/brick.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, {1.0f, 1.0f, 1.0f, 1.0f}, 1));
+			objs.back()->InitTexture("resources/brick_base.png");
+			target = objs.back();
+			break;
 
-	case '-':
-		Ypos -= 0.5f;
-		break;
+		case '2':
+			cout << "2번 객체: 물음표 블럭입니다." << endl;
+			objs.push_back(new Object("resources/brick.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 2));
+			objs.back()->InitTexture("resources/brick_base.png");
+			target = objs.back();
+			break;
 
-	case 'q': // 프로그램 종료
-		exit(0);
-		break;
+		case '3':
+			cout << "3번 객체: 별입니다." << endl;
+			objs.push_back(new Object("resources/star.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 3));
+			objs.back()->InitTexture("resources/star_base.png");
+			target = objs.back();
+			break;
+
+		case '4':
+			cout << "4번 객체: 동전입니다." << endl;
+			objs.push_back(new Object("resources/coin.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 3));
+			objs.back()->InitTexture("resources/coin_base.png");
+			target = objs.back();
+			break;
+
+		case '5':
+			cout << "5번 객체: 파이프입니다." << endl;
+			objs.push_back(new Object("resources/pipe.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 3));
+			objs.back()->InitTexture("resources/pipe_base.png");
+			target = objs.back();
+			break;
+
+
+		case 'r':
+		case 'R':
+			cout << "오브젝트 회전 모드로 전환합니다." << endl;
+			R_mode = true;
+			M_mode = false;
+			break;
+
+		case 'm':
+		case 'M':
+			cout << "오브젝트 이동 모드로 전환합니다." << endl;
+			R_mode = false;
+			M_mode = true;
+			break;
+
+		case '+':
+			Ypos += 5.0f;
+			cout << "현재 y축 높이: " << Ypos << endl;
+			break;
+
+		case '-':
+			Ypos -= 5.0f;
+			if (Ypos < -20.0f)
+			{
+				cout << "최소 높이입니다." << endl;
+				Ypos = -20.0f;
+			}
+			cout << "현재 y축 높이: " << Ypos << endl;
+			break;
+
+		case 's':
+		case 'S': // 세이브
+		{
+			string path;
+			cout << "저장할 파일의 이름을 입력하세요: ";
+			cin >> path;
+
+			Save(path);
+
+			break;
+		}
+
+		case 'l':
+		case 'L': // 로드
+		{
+			string path;
+			cout << "불러올 파일의 경로를 입력하세요: ";
+			cin >> path;
+
+			Load(path);
+
+			break;
+		}
+
+		case 'q': // 프로그램 종료
+			exit(0);
+			break;
+		}
 	}
+	else // 플레이 모드 동작.
+	{
+		switch (key)
+		{
+		case 'q': // 프로그램 종료
+			exit(0);
+			break;
+		}
+	}
+	
 	glutPostRedisplay();
 }
 
@@ -144,7 +295,9 @@ GLvoid Keyboardup(unsigned char key, int x, int y)
 
 GLvoid TimerFunction(int value)
 {
-	cube->Update();
+	stage->Update();
+	for (Object*& o : objs)
+		o->Update();
 
 	glutPostRedisplay();
 	glutTimerFunc(50, TimerFunction, 1);
@@ -164,11 +317,14 @@ GLvoid Mouse(int button, int state, int x, int y)
 		glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
 
 		// Ray Picking 로직
-		if (obb_ray(*cube, ray_origin, ray_direction))
-			target = cube;
-		else
-			target = nullptr;
-		drag = true;
+		for (Object*& o : objs)
+		{
+			if (obb_ray(*o, ray_origin, ray_direction))
+				target = o;
+			else
+				target = nullptr;
+			drag = true;
+		}
 	}
 	else if (button == GLUT_LEFT_BUTTON && state == GLUT_UP)
 	{
@@ -179,19 +335,76 @@ GLvoid Mouse(int button, int state, int x, int y)
 
 GLvoid Motion(int x, int y)
 {
-	cout << (target != nullptr) << endl;
-	if(target != nullptr)
+	if (M_mode)
 	{
-		glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
-		glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
+		if (target != nullptr)
+		{
+			glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
 
-		auto intersection = rayXZPlaneIntersection(ray_origin, ray_direction).second;
+			glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
 
-		target->SetMove(0, intersection.x);
-		target->SetMove(1, intersection.y);
-		target->SetMove(2, intersection.z);
+			auto intersection = rayXZPlaneIntersection(ray_origin, ray_direction).second;
+
+			target->SetMove(0, intersection.x);
+			target->SetMove(1, intersection.y + target->GetS().y / 2.0f);
+			target->SetMove(2, intersection.z);
+		}
 	}
 
+	mousept.x = x;
+	mousept.y = y;
+	glutPostRedisplay();
+}
+
+GLvoid DragMotion(int x, int y)
+{
+	if (R_mode)
+	{
+		if (target != nullptr)
+		{
+			int deltaX = x - mousept.x;
+			int deltaY = y - mousept.y;
+
+			target->Rot(0, deltaY);
+			target->Rot(1, deltaX);
+		}
+		else
+		{
+			int deltaX = x - mousept.x;
+			int deltaY = y - mousept.y;
+		
+			cameraAngle.x += deltaY;
+			cameraAngle.y += deltaX;
+
+		}
+	}
+	else
+	{
+		if (target != nullptr)
+		{
+			int deltaX = x - mousept.x;
+			int deltaY = y - mousept.y;
+
+			target->Scale(0, deltaX / 10.0f);
+			target->Scale(1, -deltaY / 10.0f);
+		}
+		else
+		{
+			int deltaX = x - mousept.x;
+			int deltaY = y - mousept.y;
+
+			cameraPos.x += -deltaX / 10.;
+			cameraPos.y += deltaY / 10.;
+
+			cameraDirection.x += -deltaX / 10.;
+			cameraDirection.y += deltaY / 10.;
+		}
+	}
+	
+	
+	
+	mousept.x = x;
+	mousept.y = y;
 	glutPostRedisplay();
 }
 

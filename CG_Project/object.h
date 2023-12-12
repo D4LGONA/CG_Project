@@ -29,11 +29,11 @@ public:
 	void UpdateBB();
 	// // // // // // // // //
 
-	// 피킹 //
-
+	int shape = 0;
 	
 	// 여기부터
-	Object(const char*, GLuint, glm::vec3, glm::vec3, glm::vec3, glm::vec4);
+	Object(const char*, GLuint, glm::vec3, glm::vec3, glm::vec3, glm::vec4, int);
+	Object(GLuint, glm::vec3, glm::vec3, glm::vec3, glm::vec4, int);
 	Object() {}
 	~Object() {}
 	void InitBuffer(); // 생성자 안에 무조건 넣습니다
@@ -50,5 +50,28 @@ public:
 	void RotByPoint(int n, bool b, glm::vec3 o);
 	void SetRot(int n, float value) { R[n] = value; } // 객체 자체의 회전을 주어진 값 을 변경
 	void SetMove(int n, float value) { T[n] = value; }
+	void Scale(int n, float value) { S[n] += value; T[n] += value / 2.0f; }
 	glm::vec3 GetRot() { return R; }
+	glm::vec3 GetT() { return T; }
+	glm::vec3 GetS() { return S; }
+
+	// 파일입출력 용도
+	friend std::ostream& operator<<(std::ostream& os, Object& obj) 
+	{
+		os << obj.S.x << ' ' << obj.S.y << ' ' << obj.S.z << ' '
+			<< obj.R.x << ' ' << obj.R.y << ' ' << obj.R.z << ' '
+			<< obj.T.x << ' ' << obj.T.y << ' ' << obj.T.z << ' '
+			<< obj.shape;
+		return os;
+	}
+
+	// 파일에서 객체 정보를 읽는 함수
+	friend std::istream& operator>>(std::istream& is, Object& obj) 
+	{
+		is >> obj.S.x >> obj.S.y >> obj.S.z
+			>> obj.R.x >> obj.R.y >> obj.R.z
+			>> obj.T.x >> obj.T.y >> obj.T.z
+			>> obj.shape;
+		return is;
+	}
 };
