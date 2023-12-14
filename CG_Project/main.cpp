@@ -32,10 +32,17 @@ bool M_mode = true;
 bool S_mode = false;
 bool Edit_mode = true;
 Object* target = nullptr;
+Object* player = nullptr;
 float dist_camera = 150.0f;
 
 float yaw = 0.0f;
 float pitch = 0.0f;
+chrono::high_resolution_clock::time_point lastFrameTime;
+float jumpVelocity = 0.0f; // 점프 속도
+float gravity = -0.05f;    // 중력 가속도
+bool isJump = false;
+
+glm::vec3 dir = { 0.0f, 0.0f, 0.0f };
 
 bool compareObjects(Object*& a, Object*& b) 
 {
@@ -135,15 +142,13 @@ void Reset()
 	cameraAngle = { 0.0f, 0.0f, 0.0f };
 
 	proj = glm::mat4(1.0f);
-	proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 120.0f); //--- 투영 공간 설정: fovy, aspect, near, far
+	proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 200.0f); //--- 투영 공간 설정: fovy, aspect, near, far
 	proj = glm::translate(proj, glm::vec3(0.0, 0.0, 30.0f));
 
 	view = glm::lookAt(cameraPos, cameraPos + cameraDirection, cameraUp);
 	view = glm::rotate(view, glm::radians(cameraAngle.z), { 0.0f, 0.0f, 1.0f });
 	view = glm::rotate(view, glm::radians(cameraAngle.y), { 0.0f, 1.0f, 0.0f });
 	view = glm::rotate(view, glm::radians(cameraAngle.x), { 1.0f, 0.0f, 0.0f });
-
-	//Load("w");
 }
 
 void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
@@ -187,6 +192,7 @@ GLvoid drawScene()
 
 	glutSwapBuffers(); //--- 화면에 출력하기
 }
+
 //--- 다시그리기 콜백 함수
 GLvoid Reshape(int w, int h)
 {
@@ -223,14 +229,14 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 
 		case '4':
 			cout << "4번 객체: 동전입니다." << endl;
-			objs.push_back(new Object("resources/coin.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 3));
+			objs.push_back(new Object("resources/coin.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 4));
 			objs.back()->InitTexture("resources/coin_base.png");
 			target = objs.back();
 			break;
 
 		case '5':
 			cout << "5번 객체: 파이프입니다." << endl;
-			objs.push_back(new Object("resources/pipe.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 3));
+			objs.push_back(new Object("resources/pipe.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 5));
 			objs.back()->InitTexture("resources/pipe_base.png");
 			target = objs.back();
 			break;
@@ -238,23 +244,12 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 		case '0':
 		{
 			system("cls");
-			cout << "시뮬레이션을 시작합니다." << endl;
 			Edit_mode = false;
 
 			R_mode = false;
 			M_mode = false;
 			S_mode = false;
 
-			cameraPos = glm::vec3(0.0f, 10.0f, 0.0f); //--- 카메라 위치
-			cameraDirection = glm::vec3(0.0f, 0.0f, 1.0f); //--- 카메라 바라보는 방향
-			cameraUp = glm::vec3(0.0f, 1.0f, 0.0f); //--- 카메라 위쪽 방향
-			view = glm::mat4(1.0f);
-			cameraAngle = { 0.0f, 0.0f, 0.0f };
-
-			view = glm::lookAt(cameraPos, cameraDirection, cameraUp);
-			view = glm::rotate(view, glm::radians(cameraAngle.z), { 0.0f, 0.0f, 1.0f });
-			view = glm::rotate(view, glm::radians(cameraAngle.y), { 0.0f, 1.0f, 0.0f });
-			view = glm::rotate(view, glm::radians(cameraAngle.x), { 1.0f, 0.0f, 0.0f });
 			break;
 		}
 
@@ -330,23 +325,6 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 	{
 		switch (key)
 		{
-		case 'w':
-			cameraPos += 2.0f * cameraDirection;
-
-			break;
-
-		case 'a':
-			cameraPos -= glm::normalize(glm::cross(cameraDirection, cameraUp)) * 2.0f;
-			break;
-
-		case 's':
-			cameraPos -= 2.0f * cameraDirection;
-			break;
-
-		case 'd':
-			cameraPos += glm::normalize(glm::cross(cameraDirection, cameraUp)) * 2.0f;
-			break;
-
 		case 'q': // 프로그램 종료
 			exit(0);
 			break;
@@ -358,14 +336,20 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 
 GLvoid Keyboardup(unsigned char key, int x, int y)
 {
-	switch (key)
-	{
-	}
 	glutPostRedisplay();
 }
 
 GLvoid TimerFunction(int value)
 {
+	if(!Edit_mode)
+	{
+		for (Object*& o : objs)
+		{
+			if (o->shape == 4)
+				o->Rot(1, 5.0f);
+		}
+	}
+
 
 	if (stage != nullptr)
 		stage->Update();
@@ -451,34 +435,6 @@ GLvoid Motion(int x, int y)
 		mousept.x = x;
 		mousept.y = y;
 	}
-	else
-	{
-		float xoffset = mousept.x - x;
-		float yoffset = y - mousept.y;
-
-		float sensitivity = 0.05;
-		xoffset *= sensitivity;
-		yoffset *= sensitivity;
-
-		yaw -= xoffset;
-		pitch -= yoffset;
-
-		if (pitch > 89.0f)
-			pitch = 89.0f;
-		if (pitch < -89.0f)
-			pitch = -89.0f;
-
-		glm::vec3 front;
-		front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-		front.y = sin(glm::radians(pitch));
-		front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-		cameraDirection = glm::normalize(front);
-
-		glutWarpPointer(400, 400);
-		mousept.x = 400;
-		mousept.y = 400;
-
-	}
 
 	
 	glutPostRedisplay();
@@ -486,7 +442,7 @@ GLvoid Motion(int x, int y)
 
 GLvoid DragMotion(int x, int y)
 {
-	if(Edit_mode)
+	if (Edit_mode)
 	{
 		if (R_mode)
 		{
@@ -522,10 +478,7 @@ GLvoid DragMotion(int x, int y)
 		}
 		else
 		{
-			if (target != nullptr)
-			{
-			}
-			else
+			if (target == nullptr)
 			{
 				int deltaX = x - mousept.x;
 				int deltaY = y - mousept.y;
@@ -533,11 +486,31 @@ GLvoid DragMotion(int x, int y)
 				cameraPos.x += -deltaX / 10.;
 				cameraPos.y += deltaY / 10.;
 
-				/*cameraDirection.x += -deltaX / 10.;
-				cameraDirection.y += deltaY / 10.;*/
-
 				sort(objs.begin(), objs.end(), compareObjects);
 			}
+		}
+	}
+	else
+	{
+		if (R_mode)
+		{
+			int deltaX = x - mousept.x;
+			int deltaY = y - mousept.y;
+
+			cameraAngle.x += deltaY / 2.0f;
+			cameraAngle.y += deltaX / 2.0f;
+
+			sort(objs.begin(), objs.end(), compareObjects);
+		}
+		else
+		{
+			int deltaX = x - mousept.x;
+			int deltaY = y - mousept.y;
+
+			cameraPos.x += -deltaX / 10.;
+			cameraPos.y += deltaY / 10.;
+
+			sort(objs.begin(), objs.end(), compareObjects);
 		}
 	}
 	

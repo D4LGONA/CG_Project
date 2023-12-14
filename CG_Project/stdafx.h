@@ -36,6 +36,7 @@ extern glm::vec3 lightPos;
 extern glm::vec3 lightColor;
 extern bool light_onf;
 extern float light_hardness;
+extern float deltatime;
 
 float dist(glm::vec3 p1, glm::vec3 p2);
 bool obb(class Object& a, class Object& b);

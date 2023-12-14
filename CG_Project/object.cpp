@@ -71,6 +71,7 @@ void Object::Update()
 	vAxisDir[1] = T + origin + glm::vec3{ 0.0f, 1.0f, 0.0f };
 	vAxisDir[2] = T + origin + glm::vec3{ 0.0f, 0.0f, 1.0f };
 	UpdateBB();
+	cout << T.x << ", " << T.y << ", " << T.z << endl;
 }
 
 void Object::Render()
@@ -78,13 +79,10 @@ void Object::Render()
 	glBindVertexArray(vao);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
-	
-
 	view = glm::lookAt(cameraPos, cameraDirection + cameraPos, cameraUp);
 	view = glm::rotate(view, glm::radians(cameraAngle.z), { 0.0f, 0.0f, 1.0f });
 	view = glm::rotate(view, glm::radians(cameraAngle.y), { 0.0f, 1.0f, 0.0f });
 	view = glm::rotate(view, glm::radians(cameraAngle.x), { 1.0f, 0.0f, 0.0f });
-
 
 	unsigned int lightPosLocation = glGetUniformLocation(ShaderProgram, "lightPos"); 
 	glUniform3f(lightPosLocation, lightPos.x, lightPos.y, lightPos.z);
