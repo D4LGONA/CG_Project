@@ -31,6 +31,7 @@ extern glm::vec3 cameraDirection;
 extern glm::vec3 cameraUp;
 extern glm::mat4 view;
 extern glm::vec3 cameraAngle;
+extern glm::vec3 cameraAngle_self;
 extern glm::vec3 lightPos;
 extern glm::vec3 lightColor;
 extern bool light_onf;

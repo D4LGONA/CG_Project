@@ -11,6 +11,7 @@ glm::vec3 cameraDirection = glm::vec3(0.0f, 0.0f, 0.0f); //--- 카메라 바라보는 �
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f); //--- 카메라 위쪽 방향
 glm::mat4 view = glm::mat4(1.0f);
 glm::vec3 cameraAngle = { 0.0f, 0.0f, 0.0f };
+glm::vec3 cameraAngle_self = { 0.0f, 0.0f, 0.0f };
 glm::vec3 lightPos = { 0.0f, 100.0f, 100.0f };
 glm::vec3 lightColor = { 1.0f, 1.0f, 1.0f };
 bool light_onf = true;

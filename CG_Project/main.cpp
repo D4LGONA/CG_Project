@@ -25,16 +25,32 @@ Object* stage;
 vector<Object*> objs;
 
 bool drag = false;
-float Ypos = -20.0f;
+float Ypos = -5.0f;
 
 bool R_mode = false;
 bool M_mode = true;
+bool S_mode = false;
 bool Edit_mode = true;
 Object* target = nullptr;
+float dist_camera = 150.0f;
 
-void howto()
+float yaw = 0.0f;
+float pitch = 0.0f;
+
+bool compareObjects(Object*& a, Object*& b) 
 {
+	// 역행렬 계산
+	glm::mat4 inverseViewMatrix = glm::inverse(view);
 
+	// 회전 적용된 cameraPos를 얻음
+	glm::vec4 rotatedCameraPos = inverseViewMatrix * glm::vec4(cameraPos, 1.0f);
+	glm::vec4 cP = rotatedCameraPos;
+
+	float distanceA = glm::length(glm::vec3(a->GetT().x - cP[0], a->GetT().y - cP[1], a->GetT().z - cP[2]));
+	float distanceB = glm::length(glm::vec3(b->GetT().x - cP[0], b->GetT().y - cP[1], b->GetT().z - cP[2]));
+
+	// 가까운 순서로 정렬
+	return distanceA < distanceB;
 }
 
 bool Save(string filepath)
@@ -43,6 +59,8 @@ bool Save(string filepath)
 
 	if (out.is_open()) 
 	{
+		if (stage != nullptr)
+			out << *stage << endl;
 		for (Object*& obj : objs) 
 		{
 			out << *obj << std::endl;
@@ -60,10 +78,12 @@ bool Save(string filepath)
 
 bool Load(string filepath)
 {
-	objs.clear();
-
 	std::ifstream in("resources/" + filepath);
 	if (in.is_open()) {
+		objs.clear();
+		delete stage;
+		stage = nullptr;
+
 		Object t{};
 		while (in >> t) 
 		{
@@ -104,27 +124,26 @@ pair<bool, glm::vec3> rayXZPlaneIntersection(glm::vec3 rayStart, glm::vec3 rayDi
 
 void Reset()
 {
-	int tx, ty;
-	cout << "맵 크기: ";
-	cin >> tx >> ty;
-	stage = new Object("resources/plane.obj", shaderProgramID, { tx, 0.5f, ty}, { 0.0f, 0.0f, 0.0f }, { 0.0f, -20.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 0);
-	stage->InitTexture("resources/stage_base.png");
-	cout << "초기 상태 - 오브젝트 이동 모드." << endl;
+	stage = new Object("resources/brick.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, -2.5f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 1);
+	stage->InitTexture("resources/brick_base.png");
+	cout << "초기 상태 - 오브젝트 이동 모드. 블록이 그려진 위치는 캐릭터의 시작 위치입니다." << endl;
 	
-	cameraPos = glm::vec3(0.0f, 0.0f, 120.0f); //--- 카메라 위치
-	cameraDirection = glm::vec3(0.0f, 0.0f, 0.0f); //--- 카메라 바라보는 방향
+	cameraPos = glm::vec3(0.0f, 0.0f, 100.0f); //--- 카메라 위치
+	cameraDirection = glm::vec3(0.0f, 0.0f, -1.0f); //--- 카메라 바라보는 방향
 	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f); //--- 카메라 위쪽 방향
 	view = glm::mat4(1.0f);
 	cameraAngle = { 0.0f, 0.0f, 0.0f };
 
 	proj = glm::mat4(1.0f);
-	proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 200.0f); //--- 투영 공간 설정: fovy, aspect, near, far
+	proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 120.0f); //--- 투영 공간 설정: fovy, aspect, near, far
 	proj = glm::translate(proj, glm::vec3(0.0, 0.0, 30.0f));
 
-	view = glm::lookAt(cameraPos, cameraDirection, cameraUp);
+	view = glm::lookAt(cameraPos, cameraPos + cameraDirection, cameraUp);
 	view = glm::rotate(view, glm::radians(cameraAngle.z), { 0.0f, 0.0f, 1.0f });
 	view = glm::rotate(view, glm::radians(cameraAngle.y), { 0.0f, 1.0f, 0.0f });
 	view = glm::rotate(view, glm::radians(cameraAngle.x), { 1.0f, 0.0f, 0.0f });
+
+	//Load("w");
 }
 
 void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
@@ -159,7 +178,9 @@ GLvoid drawScene()
 	
 	glEnable(GL_DEPTH_TEST); 
 
-	stage->Render();
+
+	if (stage != nullptr)
+		stage->Render();
 
 	for (Object*& o : objs)
 		o->Render();
@@ -174,6 +195,7 @@ GLvoid Reshape(int w, int h)
 
 GLvoid Keyboarddown(unsigned char key, int x, int y)
 {
+
 	if (Edit_mode) // 맵 편집 도구 동작.
 	{
 		switch (key)
@@ -187,8 +209,8 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 
 		case '2':
 			cout << "2번 객체: 물음표 블럭입니다." << endl;
-			objs.push_back(new Object("resources/brick.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 2));
-			objs.back()->InitTexture("resources/brick_base.png");
+			objs.push_back(new Object("resources/brick2.obj", shaderProgramID, { 5.0f, 5.0f, 5.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, 2));
+			objs.back()->InitTexture("resources/brick2_base.png");
 			target = objs.back();
 			break;
 
@@ -213,19 +235,51 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 			target = objs.back();
 			break;
 
+		case '0':
+		{
+			system("cls");
+			cout << "시뮬레이션을 시작합니다." << endl;
+			Edit_mode = false;
+
+			R_mode = false;
+			M_mode = false;
+			S_mode = false;
+
+			cameraPos = glm::vec3(0.0f, 10.0f, 0.0f); //--- 카메라 위치
+			cameraDirection = glm::vec3(0.0f, 0.0f, 1.0f); //--- 카메라 바라보는 방향
+			cameraUp = glm::vec3(0.0f, 1.0f, 0.0f); //--- 카메라 위쪽 방향
+			view = glm::mat4(1.0f);
+			cameraAngle = { 0.0f, 0.0f, 0.0f };
+
+			view = glm::lookAt(cameraPos, cameraDirection, cameraUp);
+			view = glm::rotate(view, glm::radians(cameraAngle.z), { 0.0f, 0.0f, 1.0f });
+			view = glm::rotate(view, glm::radians(cameraAngle.y), { 0.0f, 1.0f, 0.0f });
+			view = glm::rotate(view, glm::radians(cameraAngle.x), { 1.0f, 0.0f, 0.0f });
+			break;
+		}
 
 		case 'r':
 		case 'R':
 			cout << "오브젝트 회전 모드로 전환합니다." << endl;
 			R_mode = true;
 			M_mode = false;
+			S_mode = false;
 			break;
-
+			
 		case 'm':
 		case 'M':
 			cout << "오브젝트 이동 모드로 전환합니다." << endl;
 			R_mode = false;
 			M_mode = true;
+			S_mode = false;
+			break;
+
+		case 'c':
+		case 'C':
+			cout << "오브젝트 크기 조정 모드로 전환합니다." << endl;
+			R_mode = false;
+			M_mode = false;
+			S_mode = true;
 			break;
 
 		case '+':
@@ -276,6 +330,23 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 	{
 		switch (key)
 		{
+		case 'w':
+			cameraPos += 2.0f * cameraDirection;
+
+			break;
+
+		case 'a':
+			cameraPos -= glm::normalize(glm::cross(cameraDirection, cameraUp)) * 2.0f;
+			break;
+
+		case 's':
+			cameraPos -= 2.0f * cameraDirection;
+			break;
+
+		case 'd':
+			cameraPos += glm::normalize(glm::cross(cameraDirection, cameraUp)) * 2.0f;
+			break;
+
 		case 'q': // 프로그램 종료
 			exit(0);
 			break;
@@ -295,7 +366,9 @@ GLvoid Keyboardup(unsigned char key, int x, int y)
 
 GLvoid TimerFunction(int value)
 {
-	stage->Update();
+
+	if (stage != nullptr)
+		stage->Update();
 	for (Object*& o : objs)
 		o->Update();
 
@@ -307,101 +380,166 @@ GLvoid Mouse(int button, int state, int x, int y)
 {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
 	{
-		if (target != nullptr)
+		if(Edit_mode)
 		{
-			target = nullptr;
-			return;
-		}
-
-		glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
-		glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
-
-		// Ray Picking 로직
-		for (Object*& o : objs)
-		{
-			if (obb_ray(*o, ray_origin, ray_direction))
-				target = o;
-			else
+			if (target != nullptr)
+			{
 				target = nullptr;
-			drag = true;
+				return;
+			}
+
+			glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
+			glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
+
+			// Ray Picking 로직
+			for (Object*& o : objs)
+			{
+				if (obb_ray(*o, ray_origin, ray_direction))
+				{
+					target = o;
+					break;
+				}
+				else
+					target = nullptr;
+			}
 		}
+
+
 	}
-	else if (button == GLUT_LEFT_BUTTON && state == GLUT_UP)
+	else if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN)
 	{
-		//drag = false;
+		if(Edit_mode)
+		{
+			glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
+			glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
+
+			// Ray Picking 로직
+			auto it = std::remove_if(objs.begin(), objs.end(), [&](Object* obj) {
+				return obb_ray(*obj, ray_origin, ray_direction);
+				});
+
+			// erase를 사용하여 삭제
+			objs.erase(it, objs.end());
+		}
 	}
 	return GLvoid();
 }
 
 GLvoid Motion(int x, int y)
 {
-	if (M_mode)
+	if (Edit_mode)
 	{
-		if (target != nullptr)
+		if (M_mode)
 		{
-			glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
+			if (target != nullptr)
+			{
+				glm::vec3 ray_origin = glm::unProject(glm::vec3(x, HEIGHT - y, 0.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT));
 
-			glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
+				glm::vec3 ray_direction = glm::normalize(glm::unProject(glm::vec3(x, HEIGHT - y, 1.0f), view, proj, glm::vec4(0, 0, WIDTH, HEIGHT)) - ray_origin);
 
-			auto intersection = rayXZPlaneIntersection(ray_origin, ray_direction).second;
+				pair<bool, glm::vec3> intersection = rayXZPlaneIntersection(ray_origin, ray_direction);
+			
 
-			target->SetMove(0, intersection.x);
-			target->SetMove(1, intersection.y + target->GetS().y / 2.0f);
-			target->SetMove(2, intersection.z);
+				if (intersection.first)
+				{
+					target->SetMove(0, intersection.second.x);
+					target->SetMove(1, intersection.second.y + target->GetS().y / 2.0f);
+					target->SetMove(2, intersection.second.z);
+				}
+			}
 		}
+		mousept.x = x;
+		mousept.y = y;
+	}
+	else
+	{
+		float xoffset = mousept.x - x;
+		float yoffset = y - mousept.y;
+
+		float sensitivity = 0.05;
+		xoffset *= sensitivity;
+		yoffset *= sensitivity;
+
+		yaw -= xoffset;
+		pitch -= yoffset;
+
+		if (pitch > 89.0f)
+			pitch = 89.0f;
+		if (pitch < -89.0f)
+			pitch = -89.0f;
+
+		glm::vec3 front;
+		front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+		front.y = sin(glm::radians(pitch));
+		front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+		cameraDirection = glm::normalize(front);
+
+		glutWarpPointer(400, 400);
+		mousept.x = 400;
+		mousept.y = 400;
+
 	}
 
-	mousept.x = x;
-	mousept.y = y;
+	
 	glutPostRedisplay();
 }
 
 GLvoid DragMotion(int x, int y)
 {
-	if (R_mode)
+	if(Edit_mode)
 	{
-		if (target != nullptr)
+		if (R_mode)
 		{
-			int deltaX = x - mousept.x;
-			int deltaY = y - mousept.y;
+			if (target != nullptr)
+			{
+				int deltaX = x - mousept.x;
+				int deltaY = y - mousept.y;
 
-			target->Rot(0, deltaY);
-			target->Rot(1, deltaX);
+				target->Rot(0, deltaY);
+				target->Rot(1, deltaX);
+			}
+			else
+			{
+				int deltaX = x - mousept.x;
+				int deltaY = y - mousept.y;
+
+				cameraAngle.x += deltaY / 2.0f;
+				cameraAngle.y += deltaX / 2.0f;
+
+				sort(objs.begin(), objs.end(), compareObjects);
+			}
+		}
+		else if (S_mode)
+		{
+			if (target != nullptr)
+			{
+				int deltaX = x - mousept.x;
+				int deltaY = y - mousept.y;
+
+				target->Scale(0, deltaX / 10.0f);
+				target->Scale(1, -deltaY / 10.0f);
+			}
 		}
 		else
 		{
-			int deltaX = x - mousept.x;
-			int deltaY = y - mousept.y;
-		
-			cameraAngle.x += deltaY;
-			cameraAngle.y += deltaX;
+			if (target != nullptr)
+			{
+			}
+			else
+			{
+				int deltaX = x - mousept.x;
+				int deltaY = y - mousept.y;
 
+				cameraPos.x += -deltaX / 10.;
+				cameraPos.y += deltaY / 10.;
+
+				/*cameraDirection.x += -deltaX / 10.;
+				cameraDirection.y += deltaY / 10.;*/
+
+				sort(objs.begin(), objs.end(), compareObjects);
+			}
 		}
 	}
-	else
-	{
-		if (target != nullptr)
-		{
-			int deltaX = x - mousept.x;
-			int deltaY = y - mousept.y;
-
-			target->Scale(0, deltaX / 10.0f);
-			target->Scale(1, -deltaY / 10.0f);
-		}
-		else
-		{
-			int deltaX = x - mousept.x;
-			int deltaY = y - mousept.y;
-
-			cameraPos.x += -deltaX / 10.;
-			cameraPos.y += deltaY / 10.;
-
-			cameraDirection.x += -deltaX / 10.;
-			cameraDirection.y += deltaY / 10.;
-		}
-	}
-	
-	
 	
 	mousept.x = x;
 	mousept.y = y;

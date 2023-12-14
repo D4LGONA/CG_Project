@@ -40,8 +40,8 @@ Object::Object(GLuint sp, glm::vec3 s, glm::vec3 r, glm::vec3 t, glm::vec4 cc, i
 		break;
 
 	case 2:
-		Readobj("resources/brick.obj");
-		InitTexture("resources/brick_base.png");
+		Readobj("resources/brick2.obj");
+		InitTexture("resources/brick2_base.png");
 		break;
 
 	case 3:
@@ -78,10 +78,13 @@ void Object::Render()
 	glBindVertexArray(vao);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
-	view = glm::lookAt(cameraPos, cameraDirection, cameraUp);
+	
+
+	view = glm::lookAt(cameraPos, cameraDirection + cameraPos, cameraUp);
 	view = glm::rotate(view, glm::radians(cameraAngle.z), { 0.0f, 0.0f, 1.0f });
 	view = glm::rotate(view, glm::radians(cameraAngle.y), { 0.0f, 1.0f, 0.0f });
 	view = glm::rotate(view, glm::radians(cameraAngle.x), { 1.0f, 0.0f, 0.0f });
+
 
 	unsigned int lightPosLocation = glGetUniformLocation(ShaderProgram, "lightPos"); 
 	glUniform3f(lightPosLocation, lightPos.x, lightPos.y, lightPos.z);
@@ -285,3 +288,4 @@ void Object::InitBuffer()
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(glm::vec3), (void*)(2 * sizeof(glm::vec3))); //--- 노말 속성
 	glEnableVertexAttribArray(2);
 }
+
