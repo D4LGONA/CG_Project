@@ -71,7 +71,6 @@ void Object::Update()
 	vAxisDir[1] = T + origin + glm::vec3{ 0.0f, 1.0f, 0.0f };
 	vAxisDir[2] = T + origin + glm::vec3{ 0.0f, 0.0f, 1.0f };
 	UpdateBB();
-	cout << T.x << ", " << T.y << ", " << T.z << endl;
 }
 
 void Object::Render()

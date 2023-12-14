@@ -325,6 +325,22 @@ GLvoid Keyboarddown(unsigned char key, int x, int y)
 	{
 		switch (key)
 		{
+		case 'r':
+		case 'R':
+			cout << "오브젝트 회전 모드로 전환합니다." << endl;
+			R_mode = true;
+			M_mode = false;
+			S_mode = false;
+			break;
+
+		case 'm':
+		case 'M':
+			cout << "오브젝트 이동 모드로 전환합니다." << endl;
+			R_mode = false;
+			M_mode = true;
+			S_mode = false;
+			break;
+
 		case 'q': // 프로그램 종료
 			exit(0);
 			break;
